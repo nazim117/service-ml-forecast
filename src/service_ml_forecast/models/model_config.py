@@ -162,7 +162,27 @@ class ProphetModelConfig(BaseModelConfig):
     )
 
 
+class ITransformerModelConfig(BaseModelConfig):
+    """iTransformer specific configuration."""
+
+    type: Literal[ModelTypeEnum.ITRANSFORMER] = ModelTypeEnum.ITRANSFORMER
+    seq_len: int = Field(
+        default=96,
+        description="Input lookback window in number of datapoints. Must be >= 2 × forecast_periods.",
+        ge=2,
+    )
+    d_model: int = Field(default=128, description="Transformer embedding dimension.", ge=1)
+    n_heads: int = Field(default=4, description="Number of attention heads.", ge=1)
+    n_layers: int = Field(default=2, description="Number of encoder layers.", ge=1)
+    d_ff: int = Field(default=256, description="Feed-forward hidden dimension.", ge=1)
+    dropout: float = Field(default=0.1, description="Dropout rate.", ge=0.0, le=1.0)
+    epochs: int = Field(default=30, description="Training epochs.", ge=1)
+    batch_size: int = Field(default=64, description="Training batch size.", ge=1)
+    lr: float = Field(default=1e-3, description="AdamW learning rate.", gt=0.0)
+    val_split: float = Field(default=0.2, description="Fraction of data held out for validation.", ge=0.0, lt=1.0)
+
+
 ModelConfig = Annotated[
-    ProphetModelConfig,
+    ProphetModelConfig | ITransformerModelConfig,
     Field(discriminator="type"),
 ]

@@ -5,17 +5,23 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile
-    container_name: service-ml-forecast
+    container_name: ml-forecast
     ports:
       - "8000:8000"
+    env_file:
+      - ../.env
     environment:
-      - ML_LOG_LEVEL=${ML_LOG_LEVEL} # Log level to use
-      - ML_ENVIRONMENT=${ML_ENVIRONMENT} # Environment to run the service in
-      - ML_API_ROOT_PATH=${ML_API_ROOT_PATH} # Public path for the back-end (e.g. when behind a reverse proxy)
-      - ML_OR_URL=${ML_OR_URL} # OpenRemote URL
-      - ML_OR_KEYCLOAK_URL=${ML_OR_KEYCLOAK_URL} # OpenRemote Keycloak URL
-      - ML_OR_SERVICE_USER=${ML_OR_SERVICE_USER} # OpenRemote service user
-      - ML_OR_SERVICE_USER_SECRET=${ML_OR_SERVICE_USER_SECRET} # OpenRemote service user secret
+      # These override .env values with Docker-internal hostnames
+      - ML_OR_URL=https://energy-forecasting-dataset-proxy-1
+      - ML_OR_KEYCLOAK_URL=https://energy-forecasting-dataset-proxy-1/auth
+      - ML_OR_SERVICE_URL=https://localhost
+      - ML_OR_PUBLIC_URL=https://localhost
+      - ML_OR_PUBLIC_KEYCLOAK_URL=https://localhost/auth
+      - ML_VERIFY_SSL=false
+      - ML_API_MIDDLEWARE_KEYCLOAK=false
+      - ML_WEBSERVER_ORIGINS=["https://localhost"]
+      - ML_OR_REALM=master
+      - ML_LOG_LEVEL=${ML_LOG_LEVEL:-INFO}
     volumes:
       # Model storage
       - ../deployment/data/models:/app/deployment/data/models
@@ -24,9 +30,11 @@ services:
     restart: unless-stopped
     networks:
       - ml-network
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - openremote-network
 
 networks:
   ml-network:
     driver: bridge
+  openremote-network:
+    external: true
+    name: energy-forecasting-dataset_default

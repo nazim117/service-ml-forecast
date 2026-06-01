@@ -47,4 +47,19 @@ class ModelProviderFactory:
                     f"Error: {e!s}. Config details: {config.model_dump_json()}"
                 ) from e
 
+        if config.type == ModelTypeEnum.ITRANSFORMER:
+            try:
+                from service_ml_forecast.ml.itransformer_model_provider import ITransformerModelProvider  # noqa: PLC0415
+                return cast("ModelProvider[Any]", ITransformerModelProvider(config=config))
+            except ImportError as e:
+                raise ImportError(
+                    "torch is required for iTransformer. Install the 'itransformer' extra: "
+                    "pip install service-ml-forecast[itransformer]"
+                ) from e
+            except Exception as e:
+                raise ValueError(
+                    f"Failed to create iTransformer model provider for config {config.id}. "
+                    f"Error: {e!s}. Config details: {config.model_dump_json()}"
+                ) from e
+
         raise ValueError(f"Unsupported model type: {config.type}. Supported types: {[t.value for t in ModelTypeEnum]}")

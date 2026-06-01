@@ -24,9 +24,14 @@ WORKDIR /app
 # Version argument for setuptools-scm
 ARG VERSION=0.0.0
 
+# Optional extras to install (e.g. "itransformer" to include torch).
+# Pass --build-arg ML_EXTRAS="" to build a Prophet-only image without torch.
+ARG ML_EXTRAS=itransformer
+
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    SETUPTOOLS_SCM_PRETEND_VERSION=${VERSION}
+    SETUPTOOLS_SCM_PRETEND_VERSION=${VERSION} \
+    ML_EXTRAS=${ML_EXTRAS}
 
 RUN echo "Installing Python build dependencies..."
 RUN apt-get update \
@@ -44,9 +49,14 @@ COPY src/ ./src/
 COPY scripts/ ./scripts/
 COPY packages/ ./packages/
 
-# Install project dependencies using uv
+# Install project dependencies using uv (include optional extras if set)
 RUN echo "Installing Python project dependencies..."
-RUN uv sync --no-cache-dir \
+RUN uv lock --no-cache && \
+    if [ -n "${ML_EXTRAS}" ]; then \
+        uv sync --no-cache-dir --extra "${ML_EXTRAS}"; \
+    else \
+        uv sync --no-cache-dir; \
+    fi \
     && apt-get remove -y build-essential \
     && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/* \
@@ -69,11 +79,15 @@ LABEL git-commit=$GIT_COMMIT
 # Version argument for setuptools-scm
 ARG VERSION=0.0.0
 
+# Must re-declare ARGs from builder stage to use them in the runtime stage
+ARG ML_EXTRAS=itransformer
+
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONPATH=/app/src \
     ML_ENVIRONMENT=${ML_ENVIRONMENT:-production} \
-    SETUPTOOLS_SCM_PRETEND_VERSION=${VERSION}
+    SETUPTOOLS_SCM_PRETEND_VERSION=${VERSION} \
+    ML_EXTRAS=${ML_EXTRAS}
 
 # Install any runtime dependencies
 RUN echo "Installing runtime dependencies..."
@@ -91,9 +105,13 @@ COPY src/ ./src/
 COPY scripts/ ./scripts/
 COPY packages/ ./packages/
 
-# Install project dependencies using uv
+# Install project dependencies using uv (include optional extras if set)
 RUN echo "Installing Python project dependencies..."
-RUN uv sync --no-cache-dir
+RUN if [ -n "${ML_EXTRAS}" ]; then \
+        uv sync --no-cache-dir --extra "${ML_EXTRAS}"; \
+    else \
+        uv sync --no-cache-dir; \
+    fi
 
 # Copy frontend build artifacts
 RUN echo "Copying frontend build artifacts..."

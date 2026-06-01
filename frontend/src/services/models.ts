@@ -22,7 +22,8 @@
  * Corresponds to service_ml_forecast.models.model_type.ModelTypeEnum
  */
 export enum ModelTypeEnum {
-    PROPHET = 'prophet'
+    PROPHET = 'prophet',
+    ITRANSFORMER = 'itransformer'
 }
 
 /**
@@ -175,7 +176,35 @@ export interface ProphetModelConfig extends BaseModelConfig {
 }
 
 /**
+ * iTransformer specific model configuration.
+ * Inverted Transformer: treats each variate's time series as a token.
+ */
+export interface ITransformerModelConfig extends BaseModelConfig {
+    type: ModelTypeEnum.ITRANSFORMER;
+    /** Input lookback window in datapoints. Must be >= 2 × forecast_periods. @default 96 */
+    seq_len?: number;
+    /** Transformer embedding dimension. @default 128 */
+    d_model?: number;
+    /** Number of attention heads. @default 4 */
+    n_heads?: number;
+    /** Number of encoder layers. @default 2 */
+    n_layers?: number;
+    /** Feed-forward hidden dimension. @default 256 */
+    d_ff?: number;
+    /** Dropout rate. @default 0.1 */
+    dropout?: number;
+    /** Training epochs. @default 30 */
+    epochs?: number;
+    /** Training batch size. @default 64 */
+    batch_size?: number;
+    /** AdamW learning rate. @default 0.001 */
+    lr?: number;
+    /** Fraction of data held out for validation. @default 0.2 */
+    val_split?: number;
+}
+
+/**
  * Represents a model configuration, which can be one of the specific model types.
  * This uses a discriminated union based on the 'type' field.
  */
-export type ModelConfig = ProphetModelConfig;
+export type ModelConfig = ProphetModelConfig | ITransformerModelConfig;

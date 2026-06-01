@@ -30,6 +30,9 @@ dependencies = [
 ]
 
 
+[project.optional-dependencies]
+itransformer = ["torch>=2.2.0"]
+
 [tool.uv.workspace]
 members = ["packages/*"]
 
