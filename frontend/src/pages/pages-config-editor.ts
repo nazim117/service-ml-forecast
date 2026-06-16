@@ -20,7 +20,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { map } from 'lit/directives/map.js';
 import { when } from 'lit/directives/when.js';
 import { ModelTypeEnum, ProphetSeasonalityModeEnum } from '../services/models';
-import type { ITransformerModelConfig, ModelConfig, ProphetModelConfig } from '../services/models';
+import type { ITransformerModelConfig, ModelConfig, NLEnergyForecasterModelConfig, ProphetModelConfig } from '../services/models';
 import { APIService } from '../services/api-service';
 import { Router, RouterLocation } from '@vaadin/router';
 import { InputType, OrInputChangedEvent } from '@openremote/or-mwc-components/or-mwc-input';
@@ -73,6 +73,26 @@ const DEFAULT_ITRANSFORMER_FORM_DATA = (realm: string): ITransformerModelConfig 
     batch_size: 64,
     lr: 0.001,
     val_split: 0.2
+});
+
+const DEFAULT_NL_ENERGY_FORECASTER_FORM_DATA = (realm: string): NLEnergyForecasterModelConfig => ({
+    ...BASE_FORM_DEFAULTS,
+    realm,
+    type: ModelTypeEnum.NL_ENERGY_FORECASTER,
+    forecast_periods: 24,
+    forecast_frequency: '1h',
+    feature_mapping: {
+        temperature_2m: '',
+        cloud_cover: '',
+        wind_speed_10m: '',
+        shortwave_radiation: '',
+        total_load: '',
+        generation_forecast: '',
+        Open: '',
+        High: '',
+        Low: '',
+        'Change %': ''
+    }
 });
 
 @customElement('page-config-editor')
@@ -233,6 +253,8 @@ export class PageConfigEditor extends LitElement {
             const newType = value as ModelTypeEnum;
             if (newType === ModelTypeEnum.ITRANSFORMER) {
                 this.formData = { ...DEFAULT_ITRANSFORMER_FORM_DATA(this.realm), name: this.formData.name, target: this.formData.target };
+            } else if (newType === ModelTypeEnum.NL_ENERGY_FORECASTER) {
+                this.formData = { ...DEFAULT_NL_ENERGY_FORECASTER_FORM_DATA(this.realm), name: this.formData.name, target: this.formData.target };
             } else {
                 this.formData = { ...DEFAULT_PROPHET_FORM_DATA(this.realm), name: this.formData.name, target: this.formData.target };
             }
@@ -682,7 +704,7 @@ export class PageConfigEditor extends LitElement {
                                 @or-mwc-input-changed="${this.handleBasicInput}"
                                 label="Model Type"
                                 type="${InputType.SELECT}"
-                                .options="${[['prophet', 'Prophet'], ['itransformer', 'iTransformer']]}"
+                                .options="${[['prophet', 'Prophet'], ['itransformer', 'iTransformer'], ['nl_energy_forecaster', 'NL Energy Forecaster']]}"
                                 .value="${this.formData.type}"
                             >
                             </or-mwc-input>
@@ -782,6 +804,36 @@ export class PageConfigEditor extends LitElement {
                 <!-- Model parameters — dynamic based on model type -->
                 <or-panel heading="PARAMETERS">
                     <div class="column">
+                        ${this.formData.type === ModelTypeEnum.NL_ENERGY_FORECASTER
+                            ? (() => {
+                                const n = this.formData as NLEnergyForecasterModelConfig;
+                                return html`
+                                    <div class="row">
+                                        <p style="margin:0;opacity:0.7;font-size:0.9em;">
+                                            Pre-trained model (Nazim112/nl-energy-forecaster).
+                                            Map each feature column to a regressor in the format
+                                            <em>asset_id.attribute_name</em>.
+                                        </p>
+                                    </div>
+                                    <div class="row">
+                                        <or-mwc-input
+                                            style="flex:1;max-width:100%;"
+                                            type="${InputType.TEXTAREA}"
+                                            name="feature_mapping"
+                                            @or-mwc-input-changed="${(e: OrInputChangedEvent) => {
+                                                try {
+                                                    this.formData = { ...(this.formData as NLEnergyForecasterModelConfig), feature_mapping: JSON.parse(e.detail?.value ?? '{}') };
+                                                } catch (_) { /* ignore invalid JSON while typing */ }
+                                            }}"
+                                            label="Feature mapping (JSON)"
+                                            .value="${JSON.stringify(n.feature_mapping, null, 2)}"
+                                            rows="14"
+                                            required
+                                        ></or-mwc-input>
+                                    </div>
+                                `;
+                              })()
+                            : ''}
                         ${when(
                             this.formData.type === ModelTypeEnum.PROPHET,
                             () => {
@@ -849,6 +901,7 @@ export class PageConfigEditor extends LitElement {
                                 `;
                             },
                             () => {
+                                if (this.formData.type !== ModelTypeEnum.ITRANSFORMER) return html``;
                                 const t = this.formData as ITransformerModelConfig;
                                 return html`
                                     <div class="row">

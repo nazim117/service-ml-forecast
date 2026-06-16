@@ -21,3 +21,4 @@ from enum import Enum
 class ModelTypeEnum(str, Enum):
     PROPHET = "prophet"
     ITRANSFORMER = "itransformer"
+    NL_ENERGY_FORECASTER = "nl_energy_forecaster"

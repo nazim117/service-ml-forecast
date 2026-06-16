@@ -24,9 +24,9 @@ WORKDIR /app
 # Version argument for setuptools-scm
 ARG VERSION=0.0.0
 
-# Optional extras to install (e.g. "itransformer" to include torch).
+# Optional extras to install. Comma-separated (e.g. "itransformer,nl-energy-forecaster").
 # Pass --build-arg ML_EXTRAS="" to build a Prophet-only image without torch.
-ARG ML_EXTRAS=itransformer
+ARG ML_EXTRAS=itransformer,nl-energy-forecaster
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -53,7 +53,8 @@ COPY packages/ ./packages/
 RUN echo "Installing Python project dependencies..."
 RUN uv lock --no-cache && \
     if [ -n "${ML_EXTRAS}" ]; then \
-        uv sync --no-cache-dir --extra "${ML_EXTRAS}"; \
+        EXTRA_ARGS=$(echo "${ML_EXTRAS}" | tr ',' '\n' | sed 's/^/--extra /') && \
+        uv sync --no-cache-dir $EXTRA_ARGS; \
     else \
         uv sync --no-cache-dir; \
     fi \
@@ -108,7 +109,8 @@ COPY packages/ ./packages/
 # Install project dependencies using uv (include optional extras if set)
 RUN echo "Installing Python project dependencies..."
 RUN if [ -n "${ML_EXTRAS}" ]; then \
-        uv sync --no-cache-dir --extra "${ML_EXTRAS}"; \
+        EXTRA_ARGS=$(echo "${ML_EXTRAS}" | tr ',' '\n' | sed 's/^/--extra /') && \
+        uv sync --no-cache-dir $EXTRA_ARGS; \
     else \
         uv sync --no-cache-dir; \
     fi

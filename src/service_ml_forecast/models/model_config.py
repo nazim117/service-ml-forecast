@@ -19,7 +19,7 @@ from enum import Enum
 from typing import Annotated, Literal
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from service_ml_forecast.models.model_type import ModelTypeEnum
 
@@ -182,7 +182,49 @@ class ITransformerModelConfig(BaseModelConfig):
     val_split: float = Field(default=0.2, description="Fraction of data held out for validation.", ge=0.0, lt=1.0)
 
 
+_REQUIRED_FEATURE_MAPPING_COLS: frozenset[str] = frozenset({
+    "temperature_2m", "cloud_cover", "wind_speed_10m", "shortwave_radiation",
+    "total_load", "generation_forecast", "Open", "High", "Low", "Change %",
+})
+
+
+class NLEnergyForecasterModelConfig(BaseModelConfig):
+    """Pre-trained NL energy price forecaster (encoder-decoder transformer from HuggingFace).
+
+    Inference-only: no local training. The sync job downloads the model from
+    https://huggingface.co/Nazim112/nl-energy-forecaster and stores the last 168 h of
+    feature data. Produces a fixed 24-step hourly price forecast (EUR/MWh).
+    """
+
+    type: Literal[ModelTypeEnum.NL_ENERGY_FORECASTER] = ModelTypeEnum.NL_ENERGY_FORECASTER
+    feature_mapping: dict[str, str] = Field(
+        description=(
+            "Maps non-time, non-Price FEATURE_COL names to regressor feature_names "
+            "(format: '{asset_id}.{attribute_name}'). "
+            "Required keys: temperature_2m, cloud_cover, wind_speed_10m, shortwave_radiation, "
+            "total_load, generation_forecast, Open, High, Low, 'Change %'. "
+            "Time features (day, hour_sin/cos, day_of_week_sin/cos, month_sin/cos, "
+            "quarter_sin/cos, weekend_sin/cos) are computed automatically. "
+            "'Price' is always taken from the target attribute."
+        )
+    )
+
+    @model_validator(mode="after")
+    def validate_nl_config(self) -> "NLEnergyForecasterModelConfig":
+        if self.forecast_periods != 24:
+            raise ValueError(
+                f"NL energy forecaster always produces exactly 24 forecast periods "
+                f"(HORIZON=24), got forecast_periods={self.forecast_periods}"
+            )
+        missing = _REQUIRED_FEATURE_MAPPING_COLS - set(self.feature_mapping.keys())
+        if missing:
+            raise ValueError(
+                f"feature_mapping is missing required keys: {sorted(missing)}"
+            )
+        return self
+
+
 ModelConfig = Annotated[
-    ProphetModelConfig | ITransformerModelConfig,
+    ProphetModelConfig | ITransformerModelConfig | NLEnergyForecasterModelConfig,
     Field(discriminator="type"),
 ]
